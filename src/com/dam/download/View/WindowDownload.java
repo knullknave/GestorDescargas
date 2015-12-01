@@ -1,7 +1,8 @@
 package com.dam.download.View;
 
+import com.dam.download.Controller.ControllerMain;
+
 import javax.swing.*;
-import javax.swing.text.StringContent;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -11,6 +12,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.DecimalFormat;
 
 public class WindowDownload extends SwingWorker<Void,Void> implements ActionListener
 {
@@ -20,19 +22,26 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
     private JButton stopButton;
     private JButton startButton;
     private JPanel panel1;
-    private JLabel lblUrl;
-    private JLabel lblState;
-    private JLabel lblSize;
+    public JLabel lblUrl;
+    public JLabel lblState;
+    public JLabel lblSize;
     private JLabel lblDownloaded;
-    private JLabel lblVelocity;
+    public JLabel lblVelocity;
 
     private String url;
     private boolean stop;
+    private File f;
     private FileOutputStream fos;
-    String size;
+    public String size;
+    private String folder;
+    private long tamanoFichero;
+    private ControllerMain c;
+    public String name;
+    private boolean paused;
 
-    WindowDownload(String url)
-    {
+    private static final DecimalFormat df = new DecimalFormat("#.##");
+
+    WindowDownload(String url, ControllerMain c) throws IOException {
         frame = new JFrame("Descarga");
         frame.pack();
         frame.setContentPane(panel1);
@@ -41,6 +50,7 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
         frame.setLocationRelativeTo(null);
 
         stop = false;
+        paused = false;
 
         this.url = url;
         lblUrl.setText(url);
@@ -63,16 +73,38 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
         {
             e.printStackTrace();
         }
-        // Obtiene el tamaño del fichero en bytes
-        int tamanoFichero = conexion.getContentLength();
+        this.tamanoFichero = conexion.getContentLength();
 
-        size = String.valueOf(tamanoFichero/1024.0) + " KB";
+        size = df.format(tamanoFichero / 1024.0) + " KB";
 
         lblSize.setText(size);
         //TODO RETURN THE STATE
         lblState.setText("Waiting");
+        lblVelocity.setText("0 KB/s");
+        lblDownloaded.setText("0 %");
         startButton.addActionListener(this);
         stopButton.addActionListener(this);
+
+        if(!lblUrl.getText().endsWith(".jpg") || !lblUrl.getText().endsWith(".dat") || !lblUrl.getText().endsWith(".txt"))
+            name = lblUrl.getText().substring(lblUrl.getText().length()-5, lblUrl.getText().length()) + ".pdf";
+        else
+            name = lblUrl.getText().substring(lblUrl.getText().length()-5, lblUrl.getText().length());
+
+        this.f = new File(name);
+        while(f.exists())
+        {
+            f = new File(name.substring(0, name.length()-4) + c.i + name.substring(name.length()-4, name.length()));
+            c.i++;
+        }
+        f.createNewFile();
+        //c.i++;
+        folder = f.getAbsolutePath();
+        name = f.getName();
+
+        this.c = c;
+        c.wd.add(this);
+
+        c.recargar();
     }
 
     @Override
@@ -89,18 +121,45 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
                     lblState.setText("Downloading...");
                     startButton.setText("Pause");
                     this.execute();
+                    c.recargar();
                     break;
                 case "Pause":
                     lblState.setText("Paused");
-                    startButton.setText("Start");
+                    startButton.setText("Continue");
+                    pause();
+                    c.recargar();
+                    break;
+                case "Continue":
+                    lblState.setText("Downloading...");
+                    startButton.setText("Pause");
+                    resume();
+                    c.recargar();
                     break;
                 case "Stop":
                     stop = true;
                     startButton.setText("Start");
                     lblState.setText("Stoped");
+                    frame.dispose();
+                    c.recargar();
                     break;
             }
         }
+    }
+
+    public void resume()
+    {
+        paused = false;
+
+        synchronized (this)
+        {
+            notify();
+        }
+
+    }
+
+    public void pause()
+    {
+        paused = true;
     }
 
     @Override
@@ -108,39 +167,86 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
     {
         URL url = new URL(this.url);
         URLConnection conexion = url.openConnection();
-        // Obtiene el tamaño del fichero en bytes
+
         int tamanoFichero = conexion.getContentLength();
 
         InputStream is = url.openStream();
         //TODO PENSAR DONDE DESCARGAR ETC
-        File f = new File("fileDescargado.pdf");
-        int i= 1;
-        while(f.exists())
-        {
-            f = new File("fileDescargado" + i + ".pdf");
-            i++;
-        }
-        fos = new FileOutputStream(f.getAbsolutePath());
+        fos = new FileOutputStream(folder);
 
         byte[] bytes = new byte[2048];
         int longitud = 0;
         int progresoDescarga = 0;
 
+        double porcentage = 0.0;
+
         while ((longitud = is.read(bytes)) != -1)
         {
+            long i = System.nanoTime();
+
             fos.write(bytes, 0, longitud);
+
+            long f = System.nanoTime() - i;
+
+            double kb = (double) longitud / 1024.0;
+            porcentage = porcentage + ((kb * 100000.0) / tamanoFichero);
+            double seg = (double) f / 10000;
+
+            lblVelocity.setText(df.format(kb / seg) + " KB/s");
+            lblDownloaded.setText(df.format(porcentage) + "%");
 
             progresoDescarga += longitud;
             setProgress((int) (progresoDescarga * 100 / tamanoFichero));
 
-            if(stop == true)
+            if (stop == true)
+            {
                 break;
+            }
+            if(paused == true)
+            {
+                try
+                {
+                    synchronized (this)
+                    {
+                        wait();
+                    }
+                }
+                catch (InterruptedException e)
+                {
+                    System.out.println("Runner away!");
+                }
+            }
+
+            c.recargar();
+
         }
 
         is.close();
         fos.close();
 
-        setProgress(100);
+        if(stop == false)
+        {
+            setProgress(100);
+
+            lblState.setText("Finished");
+            c.recargar();
+            frame.dispose();
+            WindowFinished wf = new WindowFinished(this.url, f.getAbsolutePath(), this.tamanoFichero);
+            wf.mostrar();
+        }
+        else
+        {
+            setProgress(0);
+
+            f.delete();
+            frame.dispose();
+        }
+
+        if(lblState.getText().equals("Downloading...") || lblState.getText().equals("Paused") )
+        {
+            lblState.setText("Failure");
+            c.recargar();
+        }
 
         return null;
     }

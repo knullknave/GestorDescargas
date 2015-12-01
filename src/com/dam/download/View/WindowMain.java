@@ -15,6 +15,7 @@ public class WindowMain
     public JButton programmButton;
     public JButton optionsButton;
     public JTable table1;
+    private JScrollPane scrollPane;
 
     public static JMenuBar menuBar;
     public static JMenu menu;
@@ -62,6 +63,11 @@ public class WindowMain
         menu.addSeparator();
 
         menu.add(menuItem6);
+
+        continueButton.setEnabled(false);
+        stopButton.setEnabled(false);
+        //TODO IF TABLA.SIZE() > 0 ENABLE == TRUE; ELSE ENABLE == FALSE
+        stopAllButton.setEnabled(false);
 
         ControllerMain c = new ControllerMain(this);
     }
