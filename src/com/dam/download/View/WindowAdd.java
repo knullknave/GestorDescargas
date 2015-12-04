@@ -6,6 +6,7 @@ import javax.swing.*;
 import java.awt.event.*;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.File;
 import java.io.IOException;
 
 public class WindowAdd extends JDialog
@@ -15,6 +16,8 @@ public class WindowAdd extends JDialog
     private JTextField textField1;
     private JButton acceptButton;
     private JButton cancelButton;
+    private JTextField textField2;
+    private JButton pathButton;
     private ControllerMain c;
 
     public WindowAdd(ControllerMain c)
@@ -28,6 +31,17 @@ public class WindowAdd extends JDialog
         setLocationRelativeTo(null);
 
         this.c = c;
+
+        textField2.setText(c.m.readConfigureFile()[0]);
+
+        pathButton.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                search();
+            }
+        });
 
         acceptButton.addActionListener(new ActionListener()
         {
@@ -64,25 +78,57 @@ public class WindowAdd extends JDialog
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
     }
 
+    public void search()
+    {
+        JFileChooser fc = new JFileChooser();
+        fc.setCurrentDirectory(new File(c.m.readConfigureFile()[0]));
+        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+        if(fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
+        {
+            File selectedFile = fc.getSelectedFile();
+            if(selectedFile.getAbsolutePath().endsWith("\\"))
+                c.datos[0] = selectedFile.getAbsolutePath();
+            else
+                c.datos[0] = selectedFile.getAbsolutePath() + "\\";
+        }
+        textField2.setText(c.datos[0]);
+    }
+
     private void onOK() throws IOException
     {
-        //TODO EJECUTAR UNA DESCARGA
-        dispose();
-        WindowDownload w = new WindowDownload(textField1.getText(), this.c);
-
-        w.addPropertyChangeListener(new PropertyChangeListener()
+        if(textField1.getText().equals("") | textField2.getText().equals(""))
         {
-            @Override
-            public void propertyChange(PropertyChangeEvent evt)
+            JOptionPane.showMessageDialog(null, "Please, fill each options", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        else
+        {
+            if(c.numDescargas < Integer.parseInt(c.m.readConfigureFile()[1]))
             {
-                if(evt.getPropertyName().equals("progress"))
+                dispose();
+                c.numDescargas ++;
+                WindowDownload w = new WindowDownload(textField1.getText(), textField2.getText(), this.c);
+                c.m.writeFile(c.wd);
+                w.addPropertyChangeListener(new PropertyChangeListener()
                 {
-                    w.progressBar1.setValue((Integer)evt.getNewValue());
-                }
-            }
-        });
+                    @Override
+                    public void propertyChange(PropertyChangeEvent evt)
+                    {
+                        if(evt.getPropertyName().equals("progress"))
+                        {
+                            w.progressBar1.setValue((Integer)evt.getNewValue());
+                        }
+                    }
+                });
 
-        w.mostrarDialogo();
+                w.mostrarDialogo();
+            }
+            else
+            {
+                JOptionPane.showMessageDialog(null, "You have too many downloads right now", "Error", JOptionPane.ERROR_MESSAGE);
+                dispose();
+            }
+        }
     }
 
     private void onCancel()

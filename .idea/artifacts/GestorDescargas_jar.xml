@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="GestorDescargas:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/GestorDescargas_jar</output-path>
+    <root id="archive" name="GestorDescargas.jar">
+      <element id="module-output" name="GestorDescargas" />
+    </root>
+  </artifact>
+</component>

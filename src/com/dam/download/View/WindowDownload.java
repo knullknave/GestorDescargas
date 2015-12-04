@@ -5,10 +5,7 @@ import com.dam.download.Controller.ControllerMain;
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -41,7 +38,13 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
 
     private static final DecimalFormat df = new DecimalFormat("#.##");
 
-    WindowDownload(String url, ControllerMain c) throws IOException {
+    public WindowDownload()
+    {
+
+    }
+
+    public WindowDownload(String url, String path, ControllerMain c) throws IOException
+    {
         frame = new JFrame("Descarga");
         frame.pack();
         frame.setContentPane(panel1);
@@ -78,17 +81,29 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
         size = df.format(tamanoFichero / 1024.0) + " KB";
 
         lblSize.setText(size);
-        //TODO RETURN THE STATE
         lblState.setText("Waiting");
         lblVelocity.setText("0 KB/s");
         lblDownloaded.setText("0 %");
         startButton.addActionListener(this);
         stopButton.addActionListener(this);
 
-        if(!lblUrl.getText().endsWith(".jpg") || !lblUrl.getText().endsWith(".dat") || !lblUrl.getText().endsWith(".txt"))
-            name = lblUrl.getText().substring(lblUrl.getText().length()-5, lblUrl.getText().length()) + ".pdf";
+        if(path.endsWith("\\"))
+        {
+            if(lblUrl.getText().substring(lblUrl.getText().length()-4, lblUrl.getText().length()-3).equals("."))
+                name = path + lblUrl.getText().substring(lblUrl.getText().length() - 8, lblUrl.getText().length());
+            else
+                name = path + lblUrl.getText().substring(lblUrl.getText().length() - 8, lblUrl.getText().length()) + ".pdf";
+
+            f = new File(name);
+            name = f.getAbsolutePath();
+        }
         else
-            name = lblUrl.getText().substring(lblUrl.getText().length()-5, lblUrl.getText().length());
+        {
+            name = path + lblUrl.getText().substring(lblUrl.getText().length() - 8, lblUrl.getText().length()) + ".pdf";
+            File f = new File(name);
+            name = f.getAbsolutePath();
+        }
+
 
         this.f = new File(name);
         while(f.exists())
@@ -97,7 +112,7 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
             c.i++;
         }
         f.createNewFile();
-        //c.i++;
+
         folder = f.getAbsolutePath();
         name = f.getName();
 
@@ -114,25 +129,28 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
         if(source.getClass() == JButton.class)
         {
             String actionCommand = ((JButton)source).getActionCommand();
-            //TODO MIRAR COMO CONTINUAR UNA DESCARGA
+
             switch (actionCommand)
             {
                 case "Start":
                     lblState.setText("Downloading...");
                     startButton.setText("Pause");
                     this.execute();
+                    c.m.writeFile(c.wd);
                     c.recargar();
                     break;
                 case "Pause":
                     lblState.setText("Paused");
                     startButton.setText("Continue");
                     pause();
+                    c.m.writeFile(c.wd);
                     c.recargar();
                     break;
                 case "Continue":
                     lblState.setText("Downloading...");
                     startButton.setText("Pause");
                     resume();
+                    c.m.writeFile(c.wd);
                     c.recargar();
                     break;
                 case "Stop":
@@ -140,6 +158,7 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
                     startButton.setText("Start");
                     lblState.setText("Stoped");
                     frame.dispose();
+                    c.m.writeFile(c.wd);
                     c.recargar();
                     break;
             }
@@ -171,7 +190,7 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
         int tamanoFichero = conexion.getContentLength();
 
         InputStream is = url.openStream();
-        //TODO PENSAR DONDE DESCARGAR ETC
+
         fos = new FileOutputStream(folder);
 
         byte[] bytes = new byte[2048];
@@ -216,9 +235,7 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
                     System.out.println("Runner away!");
                 }
             }
-
             c.recargar();
-
         }
 
         is.close();
@@ -229,6 +246,7 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
             setProgress(100);
 
             lblState.setText("Finished");
+            c.m.writeFile(c.wd);
             c.recargar();
             frame.dispose();
             WindowFinished wf = new WindowFinished(this.url, f.getAbsolutePath(), this.tamanoFichero);
@@ -245,8 +263,11 @@ public class WindowDownload extends SwingWorker<Void,Void> implements ActionList
         if(lblState.getText().equals("Downloading...") || lblState.getText().equals("Paused") )
         {
             lblState.setText("Failure");
+            c.m.writeFile(c.wd);
             c.recargar();
         }
+
+        c.numDescargas--;
 
         return null;
     }

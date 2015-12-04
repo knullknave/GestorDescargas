@@ -1,29 +1,40 @@
 package com.dam.download.Controller;
 
+import com.dam.download.Model.Model;
+import com.dam.download.View.Configuration;
 import com.dam.download.View.WindowAdd;
 import com.dam.download.View.WindowDownload;
 import com.dam.download.View.WindowMain;
 
 import javax.swing.*;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 public class ControllerMain implements ActionListener
 {
-    WindowMain w;
+    public WindowMain w;
+    public Model m = new Model();
+    public String[] datos;
     public ArrayList<WindowDownload> wd;
     public int i;
     private DefaultTableModel model;
+    public int numDescargas;
 
     public ControllerMain(WindowMain w)
     {
         this.w = w;
 
+        numDescargas = 0;
         i = 1;
 
         ImageIcon icono = new ImageIcon("addIcon.png");
@@ -50,16 +61,8 @@ public class ControllerMain implements ActionListener
         w.menuItem.addActionListener(this);
         w.menuItem2.addActionListener(this);
         w.menuItem3.addActionListener(this);
-        w.menuItem4.addActionListener(this);
-        w.menuItem5.addActionListener(this);
-        w.menuItem6.addActionListener(this);
-
-        //TODO COMPROBAR QUE EXISTA UN FICHERO CON UN ARRAY DE DESCARGAS. SINO:
-        wd = new ArrayList<WindowDownload>();
 
         String[] columnNames = {"File name", "Size", "State", "Velocity"};
-
-        String[] data = {"Prueba1", "20 KB", "Downloading", "10 KB/S"};
 
         model = new DefaultTableModel();
         w.table1.setModel(model);
@@ -67,18 +70,26 @@ public class ControllerMain implements ActionListener
         model.addColumn(columnNames[1]);
         model.addColumn(columnNames[2]);
         model.addColumn(columnNames[3]);
-        //model.addRow(data);
-        //TODO CREAR UN ARCHIVO DE CONFIGURACION
+
+        m = new Model();
+        if(!new File("configuracion.props").exists())
+            m.saveConfigureFile();
+        datos = m.readConfigureFile();
+
+        File f = new File("Gestor.dat");
+        if(f.exists())
+        {
+            wd = m.readFile();
+            recargar();
+        }
+        else
+        {
+            wd = new ArrayList<WindowDownload>();
+        }
     }
 
     public void recargar()
     {
-/*
-        for (int i = 0; i < model.getRowCount() ; i++)
-        {
-            model.removeRow(i);
-        }*/
-
         String[] columnNames = {"File name", "Size", "State", "Velocity"};
 
         model = new DefaultTableModel();
@@ -108,23 +119,32 @@ public class ControllerMain implements ActionListener
             }
             if(source == w.continueButton)
             {
-
+                /**
+                 * @Deprecated
+                 */
             }
             if(source == w.stopButton)
             {
-
+                /**
+                 * @Deprecated
+                 */
             }
             if(source == w.stopAllButton)
             {
-
+                /**
+                 * @Deprecated
+                 */
             }
             if(source == w.programmButton)
             {
-                //TODO ADD CON DIA, TIEMPO, ETC PARA DESCARGAR
+                /**
+                 * @Deprecated
+                 */
             }
             if(source == w.optionsButton)
             {
-                //TODO VENTANA CON OPCIONES
+                Configuration c = new Configuration(m);
+                c.mostrar();
             }
         }
         else
@@ -135,10 +155,40 @@ public class ControllerMain implements ActionListener
 
                 switch (actionCommand)
                 {
+                    case "Download Files":
+                        JFileChooser fc = new JFileChooser();
+                        fc.setCurrentDirectory(new File(System.getProperty("user.home") + File.separator));
+                        if(fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
+                        {
+                            ArrayList<String> descargas = m.readFile(fc.getSelectedFile().getAbsolutePath());
 
+                            String path = m.readConfigureFile()[0];
+
+                            for(int i=0; i<descargas.size();i++)
+                            {
+                                try
+                                {
+                                    WindowDownload w = new WindowDownload(descargas.get(i), path, this);
+                                    w.mostrarDialogo();
+                                    w.execute();
+                                }
+                                catch (IOException ioex)
+                                {
+                                    ioex.printStackTrace();
+                                }
+                            }
+                        }
+
+                        break;
+                    case "Configuration":
+                        Configuration c = new Configuration(m);
+                        c.mostrar();
+                        break;
+                    case "Exit":
+                        System.exit(0);
+                        break;
                 }
             }
         }
-
     }
 }
